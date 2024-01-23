@@ -1,0 +1,113 @@
+<SendText@MDLabel>:
+    color: 'black'
+    adaptive_height: True
+    halign: 'right'
+    font_size: "15sp"
+
+<ReceiveText@MDLabel>:
+    color: 'black'
+    adaptive_height: True
+    font_size: "15sp"
+
+<Chat>:
+    BoxLayout:
+        size_hint_max_x: dp(300)
+        size_hint_min_x: dp(150)
+        orientation: "vertical"
+
+        SendText:
+            text: root.msg
+            #color: utils.get_color_from_hex(color2)
+
+
+BackGround:
+    recycleView: recycleView
+
+    MDBottomNavigation:
+        #panel_color: "#eeeaea"
+        selected_color_background: "orange"
+        text_color_active: "lightgrey"
+
+        MDBottomNavigationItem:
+            name: 'screen 1'
+            text: 'Chat'
+            icon: 'gmail'
+            badge_icon: "numeric-10"
+
+            MDFloatLayout:
+                md_bg_color: "#f1f1f1"
+
+                MDLabel:
+                    md_bg_color: "lightblue"
+                    text: 'Chats'
+                    halign: 'center'
+                    color: 'black'
+                    bold: True
+                    adaptive_height: True
+                    padding: "20dp"
+                    font_size: "30sp"
+                    pos_hint: {"top":1, "center_x": .5}
+
+                MDBoxLayout:
+                    orientation: "vertical"
+                    #size_hint: 1, 1
+                    padding: "10dp"
+
+                    MDScrollView:
+                        BoxLayout:
+                            orientation: "vertical"
+                            spacing: "15dp"
+
+                            RecycleView:
+                                id: recycleView
+                                viewclass: 'Chat'
+                                RecycleBoxLayout:
+                                    default_size: None, dp(56)
+                                    default_size_hint: 1, None
+                                    size_hint_y: None
+                                    height: self.minimum_height
+                                    orientation: 'vertical'
+                                    spacing: dp(2)
+
+                    MDBoxLayout:
+                        #adaptive_size: True
+                        size_hint: 1, None
+                        height: "50dp"
+                        pos_hint: {"bottom": 1, "center_x": .5}
+
+                        MDTextFieldRect:
+                            id: text_box_id
+                            hint_text: "Enter your text here"
+                            size_hint_x: .7
+                            #text: app.msg
+
+                        MDRaisedButton:
+                            text: "Send"
+                            #size_hint_x: .3
+                            size_hint: .2, 1
+                            on_press: root.send_message(text_box_id.text)
+
+
+        MDBottomNavigationItem:
+            name: 'screen 2'
+            text: 'Configuration'
+            icon: 'twitter'
+            badge_icon: "numeric-5"
+
+            MDFloatLayout:
+                md_bg_color: "#f1f1f1"
+
+                MDRoundFlatIconButton:
+                    text: "Upload File"
+                    icon: "file"
+                    pos_hint: {"center_x": .5, "center_y": .5}
+                    on_release: app.file_manager_open()
+
+        MDBottomNavigationItem:
+            name: 'screen 3'
+            text: 'History'
+            icon: 'linkedin'
+
+            MDLabel:
+                text: 'History'
+                halign: 'center'

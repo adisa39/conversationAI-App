@@ -1,0 +1,5 @@
+Kivy~=2.2.1
+kivymd~=1.1.1
+openai~=1.2.3
+langchain~=0.0.334
+python-dotenv~=1.0.0
