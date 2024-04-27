@@ -1,91 +1,217 @@
+# kivymd-1.2.0
 import os
 import shutil
 import queue
+import requests
 from kivy.clock import Clock
 from kivy.config import Config
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.label import Label
-from kivy.uix.recycleview.views import RecycleDataViewBehavior
-from kivymd.uix.label import MDLabel
-from kivymd.uix.scrollview import MDScrollView
+from kivy.lang import Builder
 
-Config.set("graphics", "width", "400")
+Config.set('graphics', 'width', '350')
+Config.set('graphics', 'height', '550')
 
 from kivy.core.window import Window
 from kivymd.app import MDApp
-from kivy.lang import Builder
+from kivymd.uix.screen import MDScreen
 from kivy.properties import ObjectProperty, NumericProperty, StringProperty
+from kivy.metrics import dp
 from kivy.uix.recycleview import RecycleView
+from kivy.uix.label import Label
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.filemanager import MDFileManager
+from kivymd.icon_definitions import md_icons
 from kivymd.toast import toast
-from kivymd.uix.screen import MDScreen
+from kivy.uix.recycleview.views import RecycleDataViewBehavior
+from kivy.uix.recycleboxlayout import RecycleBoxLayout
+from kivy.uix.behaviors import FocusBehavior
+from kivy.properties import BooleanProperty, ListProperty
+from kivy.uix.recycleview.layout import LayoutSelectionBehavior
+from kivymd.uix.label import MDLabel
+from kivymd.uix.scrollview import MDScrollView
+from kivymd.uix.snackbar import MDSnackbar
+from kivymd.uix.behaviors.toggle_behavior import MDToggleButton
+from kivymd.uix.button import MDFlatButton, MDIconButton
 
-from resource import message_handler
+# from resource import message_handler
+from resource import StorageManager, ChatDocBackend
+
+sm = StorageManager()
+backend = ChatDocBackend()
+selected_files = []
+selected_sources = ["project_guideline.pdf"]
+
+def notification(text):
+    toast(text=text, background=[0.8,0,0,1], duration=6.0,)
+    # MDSnackbar(
+    #     MDLabel(1
+    #         text=text,
+    #     ),
+    #     y=dp(24),
+    #     pos_hint={"center_x": 0.5},
+    #     size_hint_x=0.5,
+    # ).open()
+        
+
+def update_selection(files, file_name, is_selected):
+    """
+    Function to add and remove file from selected list
+    """
+    if is_selected:
+        if file_name not in files:
+            files.append(file_name)
+        print(files)
+    else:
+        try:
+            files.remove(file_name)
+        except ValueError:
+            pass
+        print(files)
 
 
-class RV(RecycleView):
-    def __init__(self, **kwargs):
-        super(RV, self).__init__(**kwargs)
+class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior,
+                                 RecycleBoxLayout):
+    ''' Adds selection and focus behavior to the view. '''
 
 
-class Chat(RecycleDataViewBehavior, MDBoxLayout):
-    msg = StringProperty("")
-    result = StringProperty("")
+class SourceToggleView(RecycleDataViewBehavior, Label):
+    ''' Add selection support to the Label '''
+    index = None
+    selected = BooleanProperty(False)
+    selectable = BooleanProperty(True)    
+
+    fn = StringProperty("")
 
     def refresh_view_attrs(self, rv, index, data):
         ''' Catch and handle the view changes '''
-
         self.index = index
-        return super(Chat, self).refresh_view_attrs(rv, index, data)
+        return super(SourceToggleView, self).refresh_view_attrs(
+            rv, index, data)
 
+    def on_touch_down(self, touch):
+        ''' Add selection on touch down '''
+        if super(SourceToggleView, self).on_touch_down(touch):
+            return True
+        if self.collide_point(*touch.pos) and self.selectable:
+            return self.parent.select_with_touch(self.index, touch)
+
+    def apply_selection(self, rv, index, is_selected):
+        ''' Respond to the selection of items in the view. '''
+        self.selected = is_selected
+        file_name = rv.data[index]['fn']
+        update_selection(selected_sources,file_name,is_selected)
+
+
+class DocsLayout(RecycleDataViewBehavior, Label):
+    ''' Add selection support to the Label '''
+    index = None
+    selected = BooleanProperty(False)
+    selectable = BooleanProperty(True)    
+
+    fn = StringProperty("")
+
+    def refresh_view_attrs(self, rv, index, data):
+        ''' Catch and handle the view changes '''
+        self.index = index
+        return super(DocsLayout, self).refresh_view_attrs(
+            rv, index, data)
+
+    def on_touch_down(self, touch):
+        ''' Add selection on touch down '''
+        if super(DocsLayout, self).on_touch_down(touch):
+            return True
+        if self.collide_point(*touch.pos) and self.selectable:
+            return self.parent.select_with_touch(self.index, touch)
+
+    def apply_selection(self, rv, index, is_selected):
+        ''' Respond to the selection of items in the view. '''
+        self.selected = is_selected
+        file_name = rv.data[index]['fn']
+        update_selection(selected_sources,file_name,is_selected)
+
+
+class RV(RecycleView):
+    """
+    Dcocument List View Page
+    """
+    def __init__(self, **kwargs):
+        super(RV, self).__init__(**kwargs)
+        
+        self.refresh_data()
+
+    def refresh_data(self):
+        self.data = [{'fn': str(x)} for x in sm.show_docs()]
+
+
+class SourceToggleButton(MDFlatButton, MDIconButton, MDToggleButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.background_down = self.theme_cls.primary_color
+
+
+class MessageLayout(MDBoxLayout):
+    msg = StringProperty("")
+    doc = StringProperty("")
+    sent = BooleanProperty(False)
+
+    def __init__(self, msg, doc, sent=False, **kwargs):
+        super().__init__(**kwargs)
+        self.msg = msg
+        self.doc = doc
+        self.sent = sent
 
 class BackGround(MDScreen):
-    recycleView = ObjectProperty(None)
+    docs_layout = ObjectProperty(None)
+    select_source_layout = ObjectProperty(None)
     txtbox = ObjectProperty(None)
-    chat_box = ObjectProperty(None)
+    chat_scroll = ObjectProperty(None)  # Referencing the ScrollView
+    chat_layout = ObjectProperty(None)
     message_queue = queue.Queue()
     messages = []
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-        # Clock.schedule_interval(self.update_display, 0.1)
-
     def send_message(self, msg):
         if msg == "":
             toast("Enter query text")
             return
         self.ids.send_btn.disabled = True
-        self.display_message(f"Me: {msg}", sent=True)
-        message_handler(msg, display_func=self.display_message)
+        self.display_message(f"Me: \n{msg}", "query", sent=True)
 
-        # self.messages.append(f"Doc: {result['result']}")
-        # self.recycleView.data = [{"msg": str(i)} for i in self.messages]
-        # print(self.messages)
+        # send query to the backend with message_handler
+        try:
+            answer, file = backend.message_handler(msg, selected_sources)
+            self.display_message(answer, file, sent=False)
+        except Exception as err:
+            notification(f"! Loading Error, Try Again")
+
         self.txtbox.text = ""
         self.ids.send_btn.disabled = False
 
-    def display_message(self, message, sent=False):
-        message_label = MDLabel(text=message, size_hint_y=None)
-        message_label.adaptive_height = True
-        message_label.padding_y = "15dp"
-        #message_label.height = max(message_label.texture_size[1], 30)
-        if sent:
-            message_label.color = (0, 0.5, 1, 1)
-            message_label.halign = 'right'
-            #message_label.text =message
+    def display_message(self, message, response_doc, sent):
+        message_layout = MessageLayout(message, response_doc, sent)
+        self.chat_layout.add_widget(message_layout)
+        Clock.schedule_once(lambda dt: self.chat_scroll.scroll_to(message_layout), 0.1)  # Ensure scrolling happens after the UI update
 
-        else:
-            message_label.color = "black"
-            message_label.halign = 'left'
-            #message_label.text = message
-        self.chat_box.add_widget(message_label)
-        self.chat_box.scroll_y = 0
 
+    def delete_doc(self):
+        sm.delete_doc(selected_files)
+
+        # refresh DocsLayout
+        rv_instance = self.docs_layout
+        rv_instance.refresh_data()
+
+        # Remove deleted files from selected_files list
+        for file_name in selected_files.copy():
+            if file_name not in [item['fn'] for item in rv_instance.data]:
+                selected_files.remove(file_name)
+
+
+    def clear_storage(self):
+        sm.clear_storage
 
 class ChatDocApp(MDApp):
-    #bg = ObjectProperty(None)
+    #docs_layout = ObjectProperty(None)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -98,136 +224,8 @@ class ChatDocApp(MDApp):
     def build(self):
         self.theme_cls.material_style = "M3"
         self.theme_cls.theme_style = "Dark"
-        #self.bg = BackGround()
-        return Builder.load_string(
-            '''
-#:import utils kivy.utils
-#:set color1 "#DD7835"
-#:set color2 "#000000"
-
-<LeftAlignLabel@Label>:
-    text_size: self.size
-    halign: "left"
-    valign: "center"
-    canvas.before:
-        Color:
-            rgb: utils.get_random_color(color1)
-            rgba: 0, 0, 0, 0
-        Rectangle:
-            pos: self.pos
-            size: self.size
-
-
-<FitLabel@MDLabel>:
-    # size_hint: None, None
-    # size: self.texture_size
-    #adaptive_size: True
-
-BackGround:
-    # recycleView: recycleView
-    txtbox: text_box_id
-    chat_box: chat_box
-
-    MDBottomNavigation:
-        #panel_color: "#eeeaea"
-        selected_color_background: "orange"
-        text_color_active: "lightgrey"
-
-        MDBottomNavigationItem:
-            name: 'screen 1'
-            text: 'Chat'
-            icon: 'gmail'
-            badge_icon: "numeric-10"
-
-            MDFloatLayout:
-                md_bg_color: "#f1f1f1"
-                                
-                BoxLayout:
-                    orientation: 'vertical'
-                    pos: self.pos
-                    size: self.size
-                    padding: dp(10)
-                    spacing: dp(10)
-                              
-                    MDBoxLayout:
-                        adaptive_height: True
-                        
-                        MDLabel:
-                            md_bg_color: "lightblue"
-                            text: 'Chats'
-                            halign: 'center'
-                            color: 'black'
-                            bold: True
-                            #adaptive_height: True
-                            padding: "20dp"
-                            font_size: "30sp"
-                            pos_hint: {"top":1, "center_x": .5}                    
-                    
-                    # ----- CHATBOX VIEW LAYOUT ---------
-                    ScrollView:
-                        BoxLayout:
-                            padding: dp(20), dp(20)
-                            id: chat_box
-                            orientation: 'vertical'
-                            size_hint_y: None
-                            height: self.minimum_height                        
-                        
-                    MDBoxLayout:
-                        padding: "10dp"
-                        #adaptive_size: True
-                        size_hint: 1, None
-                        height: "70dp"
-                        pos_hint: {"bottom": 1, "center_x": .5}
-                
-                        MDTextFieldRect:
-                            id: text_box_id
-                            hint_text: "Enter your text here"                            
-                            size_hint_x: .7                            
-                        
-                        MDRaisedButton:
-                            id: send_btn
-                            text: "Send"
-                            #size_hint_x: .3
-                            size_hint: .2, 1
-                            on_press: root.send_message(text_box_id.text)      
-                    
-
-        MDBottomNavigationItem:
-            name: 'screen 2'
-            text: 'Configuration'
-            icon: 'twitter'
-            badge_icon: "numeric-5"
-
-            MDFloatLayout:
-                md_bg_color: "#f1f1f1"
-                
-                MDRoundFlatIconButton:
-                    text: "Upload File"
-                    icon: "file"
-                    pos_hint: {"center_x": .5, "center_y": .5}
-                    on_release: app.file_manager_open()
-
-        MDBottomNavigationItem:
-            name: 'screen 3'
-            text: 'History'
-            icon: 'linkedin'
-
-            MDLabel:
-                text: 'History'
-                halign: 'center'
-
-<Chat>:
-    MDBoxLayout:
-        adaptive_height: True
+        return Builder.load_file("chatdocapp.kv")
         
-        MDLabel:
-            text: root.msg
-            color: "black"
-        
-
-'''
-        )
-
     def file_manager_open(self):
         self.file_manager.show(os.path.expanduser("~"))  # output manager to the screen
         self.manager_open = True
@@ -249,8 +247,15 @@ BackGround:
             else:
                 file_path = os.path.join(output_folder, fn)
                 os.makedirs(output_folder, exist_ok=True)
-                shutil.copy(path, file_path)
-                toast("uploaded successfully")
+                shutil.copy(path, file_path)                
+                rv_instance = self.root.ids.docs_layout
+                rv_instance.refresh_data()     
+                
+                try:           
+                    backend.load_doc(fn)
+                except  Exception as err:
+                    notification(f"{str(err)} \n \t Delete Document and Try Again")
+                toast("Document Uploaded Successfully")
         else:
             toast("only pdf file")
 
@@ -267,6 +272,7 @@ BackGround:
             if self.manager_open:
                 self.file_manager.back()
         return True
-
+    
+    
 
 ChatDocApp().run()

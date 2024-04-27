@@ -1,0 +1,289 @@
+#:import utils kivy.utils
+#:set color1 "#DD7835"
+#:set color2 "#000000"
+
+<LeftAlignLabel@Label>:
+    text_size: self.size
+    halign: "left"
+    valign: "center"
+    canvas.before:
+        Color:
+            rgb: utils.get_random_color(color1)
+            rgba: 0, 0, 0, 0
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+
+<FitLabel@MDLabel>:
+    # size_hint: None, None
+    # size: self.texture_size
+    #adaptive_size: True
+
+
+<HeaderStyle@BoxLayout>:
+    orientation: 'vertical'
+    pos: self.pos
+    size: self.size
+    padding: dp(10)
+    spacing: dp(10)
+
+
+<TextHeader@MDLabel>:
+    md_bg_color: "green"
+    halign: 'center'
+    color: 'white'
+    bold: True
+    #adaptive_height: True
+    padding: "20dp"
+    font_size: "30sp"
+    pos_hint: {"top":1, "center_x": .5}
+
+# Message display rules
+<MessageLayout>:
+    adaptive_height: True
+    orientation: "vertical"
+    padding_bottom: "5dp"
+
+    MDLabel:
+        text: root.msg
+        halign: 'right' if root.sent else 'left' 
+        theme_text_color: "Custom" 
+        text_color: (0, 0.5, 1, 1) if root.sent else (0, 0, 0, 1)
+        adaptive_height: True        
+        markup: True
+    
+    MDLabel:
+        text: "" if root.sent else root.doc
+        color: "red"
+        halign: 'right' if root.sent else 'left'
+        adaptive_height: True
+
+# Document Listing Box Rules
+<SelectableRecycleBoxLayout>:
+    default_size: None, dp(56)
+    default_size_hint: 1, None
+    size_hint_y: None
+    height: self.minimum_height
+    spacing: '10dp'
+    orientation: 'vertical'
+    multiselect: True
+    touch_multiselect: True
+
+
+    
+
+# MAIN DISPLAY START
+BackGround:
+    docs_layout: docs_layout  
+    txtbox: text_box_id
+    chat_scroll: chat_scroll
+    chat_layout: chat_layout
+    select_source_layout: select_source_layout
+
+    MDBottomNavigation:
+        #panel_color: "#eeeaea"
+        selected_color_background: "lightgrey"
+        text_color_active: "black"
+        
+
+        # --------------- CHAT SCREEN ---------------
+        MDBottomNavigationItem:
+            name: 'screen chat'
+            #text: 'Chat'
+            icon: 'message-text'
+            icon_color_normal: "white"
+
+            MDFloatLayout:
+                md_bg_color: "#f1f1f1"
+                                
+                HeaderStyle:
+                    
+                    MDBoxLayout:
+                        adaptive_height: True
+                        
+                        TextHeader:                            
+                            text: 'Chats'
+                            
+                    # ----- CHATBOX VIEW LAYOUT ---------
+                    ScrollView:
+                        id: chat_scroll
+                        BoxLayout:
+                            padding: dp(20), dp(20)
+                            id: chat_layout
+                            orientation: 'vertical'
+                            size_hint_y: None
+                            height: self.minimum_height                           
+
+                    # HIDDEN DOCUMENT LIST
+                    MDBoxLayout:
+                        md_bg_color: "#ffffff" 
+                        size_hint_y: None
+                        height: "300dp" if root.ids.upload_btn.state == 'down' else 0 
+                        opacity: 1 if root.ids.upload_btn.state == 'down' else 0    
+                        RV:
+                            id: select_source_layout
+                            viewclass: 'SourceToggleView'
+                            SelectableRecycleBoxLayout:
+                    
+                    MDBoxLayout:
+                        padding: "10dp"
+                        #adaptive_size: True
+                        size_hint: 1, None
+                        height: "70dp"
+                        pos_hint: {"bottom": 1, "center_x": .5}
+
+                        MDBoxLayout:
+                            # padding: "5dp"
+                            adaptive_width: True
+                            # size_hint: None, 1 
+                            # width: "5dp"                                                 
+                        
+                            # LIST DOCUMENTS BUTTON
+                            SourceToggleButton:
+                                id: upload_btn
+                                # text: str(upload_btn.state)
+                                icon: "paperclip"
+                                theme_icon_color: "Custom"
+                                icon_color: "green"
+                                adaptive_size: True
+                                pos_hint: {"center_y": .5}
+                                    
+                        MDTextFieldRect:
+                            mode: "rectangle"
+                            id: text_box_id
+                            hint_text: "Enter your query text here"                            
+                            size_hint_x: .8                         
+                        
+                        MDIconButton:
+                            id: send_btn
+                            icon: "send"
+                            radius: [0, 0, 0, 0]                            
+                            #size_hint_x: .3
+                            style: "outlined"
+                            theme_bg_color: "Custom"
+                            md_bg_color: "green"
+                            theme_icon_color: "Custom"
+                            icon_color: "white"
+                            size_hint: .1, 1
+                            on_press: root.send_message(text_box_id.text)  
+                
+                
+        # --------------- HISTORY SCREEN ---------------
+        MDBottomNavigationItem:
+            name: 'screen history'
+            #text: 'History'
+            icon: 'history'
+
+            MDFloatLayout:
+                md_bg_color: "#f1f1f1"
+
+                HeaderStyle:
+                    
+                    MDBoxLayout:
+                        adaptive_height: True
+                        
+                        TextHeader:                            
+                            text: 'Conversation'
+
+                    ScrollView:
+                        BoxLayout:
+                            padding: dp(20), dp(20)
+                            id: chat_box
+                            orientation: 'vertical'
+                            size_hint_y: None
+                            height: self.minimum_height                        
+                        
+                    
+                    
+
+        # --------------- CONFIGURATION SCREEN ---------------
+        MDBottomNavigationItem:
+            name: 'screen configuration'
+            #text: 'History'
+            icon: 'cog-outline'
+
+            MDFloatLayout:
+                md_bg_color: "#f1f1f1"
+
+                HeaderStyle:
+                    
+                    MDBoxLayout:
+                        adaptive_height: True
+                        
+                        TextHeader:                            
+                            text: 'Configuration'
+
+                    MDBoxLayout:
+                        adaptive_size: True
+                        size_hint_x: None
+                        width: '200dp'
+                        #md_bg_color: "orange"
+                        pos_hint: {'right': 1}
+                        
+                        MDIconButton:  # DELETE BUTTON
+                            icon: 'delete'
+                            theme_icon_color: "Custom"
+                            icon_color: "red"
+                            #adaptive_size: True
+                            valign: 'center'
+                            on_press: root.delete_doc()
+                        
+                        MDIconButton:  # UPLOAD BUTTON
+                            icon: 'note-plus'
+                            theme_icon_color: "Custom"
+                            icon_color: "green"
+                            #adaptive_size: True
+                            valign: 'center'
+                            on_release: app.file_manager_open()
+
+                        MDIconButton: # CLEAR BUTTON
+                            icon: 'layers-off'
+                            text: 'clear'
+                            theme_icon_color: "Custom"
+                            icon_color: "red"
+                            #adaptive_size: True
+                            valign: 'center'
+                            on_release: root.clear_storage()
+
+                            
+
+                    ScrollView:
+                        
+                        RV:
+                            id: docs_layout
+                            viewclass: 'DocsLayout'
+                            SelectableRecycleBoxLayout:
+        
+
+<DocsLayout>: 
+    # Draw a background to indicate selection
+    canvas.before:
+        Color:
+            rgba: (.0, 0.9, .1, .3) if self.selected else (1, 1, 1, 1)
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    
+    text: root.fn
+    color: 'black'
+    halign: 'left'
+
+    # MDBoxLayout:
+    #     #md_bg_color: "orange"
+    #     orientation: 'horizontal'
+    #     spacing: '20dp'
+    #     padding: '15dp'
+    #     color: 'black'
+    #     MDLabel:                  
+    #         
+    #         text: root.fn
+    #         size_hint_x: .3
+    #         valign: 'center'
+
+    #     MDIconButton:
+    #         icon: 'delete'
+    #         theme_icon_color: "Custom"
+    #         icon_color: "red"
+    #         adaptive_size: True
+    #         valign: 'center'

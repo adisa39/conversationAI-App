@@ -1,7 +1,11 @@
 .env
 checks.py
+test.py
 fund_wallet.py
 design.kv
 .idea
 img
 venv
+__pycache__/
+docs/
+db/
