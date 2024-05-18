@@ -1,14 +1,17 @@
 import os
-from langchain.document_loaders import PyPDFLoader
+import shutil
+from langchain_community.document_loaders import PyPDFLoader
 
 from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTextSplitter
 from langchain.prompts import PromptTemplate
-from langchain.vectorstores import DocArrayInMemorySearch, Chroma
-from langchain.document_loaders import TextLoader
+from langchain_community.vectorstores import DocArrayInMemorySearch, Chroma
+from langchain_community.document_loaders import TextLoader
 from langchain.chains import RetrievalQA,  ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
-from langchain.chat_models import ChatOpenAI
-from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_community.chat_models import ChatOpenAI
+from langchain_community.embeddings import OpenAIEmbeddings
+import sys
+sys.path.append('../..')
 from dotenv import load_dotenv, find_dotenv
 import openai
 
@@ -18,10 +21,10 @@ if current_date < datetime.date(2023, 9, 2):
     llm_name = "gpt-3.5-turbo-0301"
 else:
     llm_name = "gpt-3.5-turbo"
-print(llm_name)
+# print(llm_name)
 
-_ = load_dotenv(find_dotenv())
-openai.api_key = os.environ['OPENAI_API_KEY']
+# _ = load_dotenv(find_dotenv())
+# openai.api_key = os.environ['OPENAI_API_KEY']
 
 
 # def qa(question):
@@ -88,7 +91,8 @@ def loader():
 
 
 class StorageManager: 
-    docs_dir = os.path.join(os.getcwd(), "docs")    
+    docs_dir = os.path.join(os.getcwd(), "docs")
+    vectoredb_dir = os.path.join(os.getcwd(), "db/chroma")
 
     def show_docs(self):
         filenames = [i.replace("_", " ") for i in os.listdir(self.docs_dir) if i.endswith(".pdf")]
@@ -113,6 +117,7 @@ class StorageManager:
     def delete_doc(self, files):
         """ method to delete file from storage """
         for file in files:
+            print("delete clicked")
             try:
                 os.remove(os.path.join(self.docs_dir, file))
                 print(f"Deleted {file} successfully\n")
@@ -123,8 +128,24 @@ class StorageManager:
                 print(f"An error occurred: {str(e)}")
 
     def clear_storage(self):
-        self.delete_doc(os.listdir(self.docs_dir))
-        ChatDocBackend.clr_history()
+        # Use shutil.rmtree to remove the directory and all its contents
+        if os.path.exists(self.vectoredb_dir):
+            shutil.rmtree(self.vectoredb_dir)
+            print(f"Removed directory: {self.vectoredb_dir}")
+        
+        # Handle documents directory separately if needed
+        try:
+            # Delete all documents in the docs directory
+            for file in os.listdir(self.docs_dir):
+                file_path = os.path.join(self.docs_dir, file)
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)
+            # Optionally remove the docs directory itself if desired
+            # os.rmdir(self.docs_dir)
+        except Exception as e:
+            print(f"Failed to delete files in {self.docs_dir}: {e}")
 
 
 def load_db(files):
@@ -168,7 +189,7 @@ class ChatDocBackend:
     """
 
     doc_storage_dir = StorageManager.docs_dir
-    vectoredb_dir = "./db/chroma"
+    vectoredb_dir = "db/chroma"
 
     chat_history = []
     answer = ''
@@ -179,9 +200,9 @@ class ChatDocBackend:
 
     def load_doc(self, new_doc):
         """
-            ---- Called at successful document upload to storage ----
-            this function load new pdf doc and store the embeddings in vectoredb.
-            the new doc is added to loaded_docs list
+        ---- Called at successful document upload to storage ----
+        this function load new pdf doc and store the embeddings in vectoredb.
+        the new doc is added to loaded_docs list
         """
         loaded_docs = []
         if new_doc in loaded_docs:
@@ -194,6 +215,7 @@ class ChatDocBackend:
             # split documents
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
             splits = text_splitter.split_documents(documents)
+            print(splits)
             # define embedding
             embeddings = OpenAIEmbeddings()
             # create vector database from data
@@ -213,8 +235,12 @@ class ChatDocBackend:
             selected docs is removed from loaded_docs list
         """
         
-        os.rmdir(self.vectoredb_dir)  # clean previous db
-        os.makedirs(os.path.join(os.getcwd(), "db"), exist_ok=False) # create db directory 
+        # clean previous db
+        if os.path.exists(self.vectoredb_dir):
+            shutil.rmtree(self.vectoredb_dir)
+            print(f"Removed directory: {self.vectoredb_dir}")
+
+        os.makedirs(os.path.join(os.getcwd(), "db"), exist_ok=True) # create db directory 
         # load document one by one
         for fl in os.listdir(self.doc_storage_dir):
             self.load_doc(fl)
@@ -259,8 +285,7 @@ class ChatDocBackend:
     #     display_func(f"Chatbot: \n{str(result['answer'])}", str(result["source_documents"]), sent=False)
 
     def clr_history(self):
-        os.rmdir(self.vectoredb_dir)
-        self.loaded_docs = os.listdir(doc_storage_dir)
+        self.loaded_docs = os.listdir(self.doc_storage_dir)
         self.chat_history = []
         self.answer = ''
         self.db_query  = ''

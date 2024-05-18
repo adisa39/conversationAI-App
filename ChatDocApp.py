@@ -20,7 +20,6 @@ from kivy.uix.label import Label
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.filemanager import MDFileManager
 from kivymd.icon_definitions import md_icons
-from kivymd.toast import toast
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivy.uix.recycleboxlayout import RecycleBoxLayout
 from kivy.uix.behaviors import FocusBehavior
@@ -31,6 +30,7 @@ from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.snackbar import MDSnackbar
 from kivymd.uix.behaviors.toggle_behavior import MDToggleButton
 from kivymd.uix.button import MDFlatButton, MDIconButton
+# from kivymd.toast import toast
 
 # from resource import message_handler
 from resource import StorageManager, ChatDocBackend
@@ -38,18 +38,19 @@ from resource import StorageManager, ChatDocBackend
 sm = StorageManager()
 backend = ChatDocBackend()
 selected_files = []
-selected_sources = ["project_guideline.pdf"]
+selected_sources = []
 
 def notification(text):
-    toast(text=text, background=[0.8,0,0,1], duration=6.0,)
-    # MDSnackbar(
-    #     MDLabel(1
-    #         text=text,
-    #     ),
-    #     y=dp(24),
-    #     pos_hint={"center_x": 0.5},
-    #     size_hint_x=0.5,
-    # ).open()
+    # toast(text=text, background=[0.8,0,0,1], duration=6.0,)
+    MDSnackbar(
+        MDLabel(
+            text=text,
+        ),
+        # y=dp(300),
+        pos_hint={"center_x": 0.5},
+        # size_hint_x=0.5,
+        md_bg_color=(0.8,0,0,1)
+    ).open()
         
 
 def update_selection(files, file_name, is_selected):
@@ -126,7 +127,7 @@ class DocsLayout(RecycleDataViewBehavior, Label):
         ''' Respond to the selection of items in the view. '''
         self.selected = is_selected
         file_name = rv.data[index]['fn']
-        update_selection(selected_sources,file_name,is_selected)
+        update_selection(selected_files,file_name,is_selected)
 
 
 class RV(RecycleView):
@@ -153,11 +154,35 @@ class MessageLayout(MDBoxLayout):
     doc = StringProperty("")
     sent = BooleanProperty(False)
 
-    def __init__(self, msg, doc, sent=False, **kwargs):
+    def __init__(self, msg, doc, sent, **kwargs):
         super().__init__(**kwargs)
         self.msg = msg
         self.doc = doc
         self.sent = sent
+        self.adaptive_height = True
+        self.orientation = "vertical"
+        self.padding_bottom = "5dp"
+
+        text_body = MDLabel(
+            text=self.msg,
+            halign='right' if self.sent else 'left',
+            theme_text_color= "Custom", 
+            text_color=(0, 0.5, 1, 1) if self.sent else (0, 0, 0, 1),
+            adaptive_height=True,        
+            markup=True
+        )
+
+        source_text = MDLabel(
+            text="" if self.sent else self.doc,
+            theme_text_color= "Custom",
+            text_color=(0.8,0,0,1),
+            halign='right' if self.sent else 'left',
+            adaptive_height=True
+        )
+
+        self.add_widget(text_body)
+        self.add_widget(source_text)
+
 
 class BackGround(MDScreen):
     docs_layout = ObjectProperty(None)
@@ -173,7 +198,7 @@ class BackGround(MDScreen):
 
     def send_message(self, msg):
         if msg == "":
-            toast("Enter query text")
+            notification("Enter query text")
             return
         self.ids.send_btn.disabled = True
         self.display_message(f"Me: \n{msg}", "query", sent=True)
@@ -183,7 +208,7 @@ class BackGround(MDScreen):
             answer, file = backend.message_handler(msg, selected_sources)
             self.display_message(answer, file, sent=False)
         except Exception as err:
-            notification(f"! Loading Error, Try Again")
+            notification(f"{err}! Try Again")
 
         self.txtbox.text = ""
         self.ids.send_btn.disabled = False
@@ -195,7 +220,12 @@ class BackGround(MDScreen):
 
 
     def delete_doc(self):
+        # Delete files from docs
         sm.delete_doc(selected_files)
+        # Reload Vector Store when file(s) is deleted
+        if selected_files:
+            backend.unload_docs()
+            print("vectore store finish re-loading")
 
         # refresh DocsLayout
         rv_instance = self.docs_layout
@@ -206,9 +236,20 @@ class BackGround(MDScreen):
             if file_name not in [item['fn'] for item in rv_instance.data]:
                 selected_files.remove(file_name)
 
+        # Refresh SourceToggleView
+        src_rv_instance = self.select_source_layout
+        src_rv_instance.refresh_data()
+
+        # Remove deleted files from selected_sources list
+        for file_name in selected_sources.copy():
+            if file_name not in [item['fn'] for item in src_rv_instance.data]:
+                selected_sources.remove(file_name)
+
 
     def clear_storage(self):
-        sm.clear_storage
+        sm.clear_storage()
+        # Refresh Chat History 
+        backend.clr_history()
 
 class ChatDocApp(MDApp):
     #docs_layout = ObjectProperty(None)
@@ -243,7 +284,7 @@ class ChatDocApp(MDApp):
         if fn.endswith(".pdf") or fn.endswith(".PDF"):
             output_folder = "docs"
             if fn in os.listdir(output_folder):
-                toast("file already exist")
+                notification("file already exist")
             else:
                 file_path = os.path.join(output_folder, fn)
                 os.makedirs(output_folder, exist_ok=True)
@@ -251,13 +292,13 @@ class ChatDocApp(MDApp):
                 rv_instance = self.root.ids.docs_layout
                 rv_instance.refresh_data()     
                 
-                try:           
-                    backend.load_doc(fn)
-                except  Exception as err:
-                    notification(f"{str(err)} \n \t Delete Document and Try Again")
-                toast("Document Uploaded Successfully")
+                # try:           
+                backend.load_doc(fn)
+                # except  Exception as err:
+        #             notification("Embeddings Error! \n \t Delete Document and Try Again")
+        #         notification("Document Uploaded Successfully")
         else:
-            toast("only pdf file")
+            notification("only pdf file")
 
     def exit_manager(self, *args):
         '''Called when the user reaches the root of the directory tree.'''

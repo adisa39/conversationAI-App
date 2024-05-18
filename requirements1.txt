@@ -1,0 +1,7 @@
+kivy
+kivymd
+pyjnius
+python-docx
+PyPDF2
+transformers
+sentence-transformers

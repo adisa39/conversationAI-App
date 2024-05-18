@@ -39,25 +39,6 @@
     font_size: "30sp"
     pos_hint: {"top":1, "center_x": .5}
 
-# Message display rules
-<MessageLayout>:
-    adaptive_height: True
-    orientation: "vertical"
-    padding_bottom: "5dp"
-
-    MDLabel:
-        text: root.msg
-        halign: 'right' if root.sent else 'left' 
-        theme_text_color: "Custom" 
-        text_color: (0, 0.5, 1, 1) if root.sent else (0, 0, 0, 1)
-        adaptive_height: True        
-        markup: True
-    
-    MDLabel:
-        text: "" if root.sent else root.doc
-        color: "red"
-        halign: 'right' if root.sent else 'left'
-        adaptive_height: True
 
 # Document Listing Box Rules
 <SelectableRecycleBoxLayout>:
@@ -65,7 +46,8 @@
     default_size_hint: 1, None
     size_hint_y: None
     height: self.minimum_height
-    spacing: '10dp'
+    spacing: '5dp'
+    padding: '5dp'
     orientation: 'vertical'
     multiselect: True
     touch_multiselect: True
@@ -127,10 +109,10 @@ BackGround:
                             SelectableRecycleBoxLayout:
                     
                     MDBoxLayout:
-                        padding: "10dp"
+                        padding: "5dp"
                         #adaptive_size: True
                         size_hint: 1, None
-                        height: "70dp"
+                        height: "50dp"
                         pos_hint: {"bottom": 1, "center_x": .5}
 
                         MDBoxLayout:
@@ -148,7 +130,8 @@ BackGround:
                                 icon_color: "green"
                                 adaptive_size: True
                                 pos_hint: {"center_y": .5}
-                                    
+                                on_state: select_source_layout.refresh_data() if self.state=="down" else None
+                                
                         MDTextFieldRect:
                             mode: "rectangle"
                             id: text_box_id
@@ -227,7 +210,7 @@ BackGround:
                             icon_color: "red"
                             #adaptive_size: True
                             valign: 'center'
-                            on_press: root.delete_doc()
+                            on_release: root.delete_doc()
                         
                         MDIconButton:  # UPLOAD BUTTON
                             icon: 'note-plus'
@@ -266,24 +249,26 @@ BackGround:
             size: self.size
     
     text: root.fn
+    text_size: self.size
+    padding: '5dp'
     color: 'black'
     halign: 'left'
+    valign: 'center'
 
-    # MDBoxLayout:
-    #     #md_bg_color: "orange"
-    #     orientation: 'horizontal'
-    #     spacing: '20dp'
-    #     padding: '15dp'
-    #     color: 'black'
-    #     MDLabel:                  
-    #         
-    #         text: root.fn
-    #         size_hint_x: .3
-    #         valign: 'center'
-
-    #     MDIconButton:
-    #         icon: 'delete'
-    #         theme_icon_color: "Custom"
-    #         icon_color: "red"
-    #         adaptive_size: True
-    #         valign: 'center'
+<SourceToggleView>:
+    # Draw a background to indicate selection
+    canvas.before:
+        Color:
+            rgba: (.0, 0.9, .1, .3) if self.selected else (1, 1, 1, 1)
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    
+    text: root.fn
+    # size_hint: None, None
+    text_size: self.size
+    padding: '5dp'
+    color: 'black'
+    halign: 'left'
+    valign: 'center'
+    
