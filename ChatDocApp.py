@@ -265,6 +265,7 @@ class ChatDocApp(MDApp):
     def build(self):
         self.theme_cls.material_style = "M3"
         self.theme_cls.theme_style = "Dark"
+        os.makedirs("./docs", exist_ok=True)
         return Builder.load_file("chatdocapp.kv")
         
     def file_manager_open(self):
