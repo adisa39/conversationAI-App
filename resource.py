@@ -23,8 +23,8 @@ else:
     llm_name = "gpt-3.5-turbo"
 # print(llm_name)
 
-# _ = load_dotenv(find_dotenv())
-# openai.api_key = os.environ['OPENAI_API_KEY']
+_ = load_dotenv(find_dotenv())
+openai.api_key = os.environ['OPENAI_API_KEY']
 
 
 # def qa(question):
@@ -87,7 +87,7 @@ def loader():
     embedding=embeddings,
     persist_directory=persist_directory
     )    
-    print(f"{vectordb._collection.count()} embeddings stored successfully")
+    # print(f"{vectordb._collection.count()} embeddings stored successfully")
 
 
 class StorageManager: 
@@ -95,10 +95,10 @@ class StorageManager:
     vectoredb_dir = os.path.join(os.getcwd(), "db/chroma")
 
     def show_docs(self):
-        filenames = [i.replace("_", " ") for i in os.listdir(self.docs_dir) if i.endswith(".pdf")]
+        filenames = [i for i in os.listdir(self.docs_dir) if i.endswith(".pdf")]
         return filenames
 
-    def upload(self, path):
+    ''' def upload(self, path):
         """ method to upload file to file storage """
         fn = os.path.basename(path)
 
@@ -107,12 +107,13 @@ class StorageManager:
             try:
                 with open(os.path.join(self.docs_dir, fn.replace(" ", "")), 'x') as f:
                     f.write(path)
-                    print("uploaded successfully \n")
-                    self.show_docs()
-            except FileExistsError:
+                    # print("uploaded successfully \n")
+                    # self.show_docs()
+            except FileExistsError as err:
                 print("file uploaded already")
         else:
             print("only pdf file")
+    '''
 
     def delete_doc(self, files):
         """ method to delete file from storage """
@@ -238,13 +239,14 @@ class ChatDocBackend:
         # clean previous db
         if os.path.exists(self.vectoredb_dir):
             shutil.rmtree(self.vectoredb_dir)
-            print(f"Removed directory: {self.vectoredb_dir}")
+            # print(f"Removed directory: {self.vectoredb_dir}")
 
         os.makedirs(os.path.join(os.getcwd(), "db"), exist_ok=True) # create db directory 
         # load document one by one
-        for fl in os.listdir(self.doc_storage_dir):
-            self.load_doc(fl)
-            print(f"{str(fl)} loaded into vector store successfully")
+        # for fl in os.listdir(self.doc_storage_dir):
+        #     print(fl)
+        #     self.load_doc(fl)
+        #     print(f"{str(fl)} loaded into vector store successfully")
             
     def run_query(self, question):
         """
@@ -253,7 +255,7 @@ class ChatDocBackend:
         """
         embedding = OpenAIEmbeddings()
         vectordb = Chroma(persist_directory=self.vectoredb_dir, embedding_function=embedding)
-        print(vectordb._collection.count())
+        # print(vectordb._collection.count())
 
         docs = vectordb.similarity_search(question, k=3)
         # print(len(docs))
@@ -284,22 +286,22 @@ class ChatDocBackend:
     #     # print(str(result["source_documents"]))
     #     display_func(f"Chatbot: \n{str(result['answer'])}", str(result["source_documents"]), sent=False)
 
-    def clr_history(self):
+    ''''def clr_history(self):
         self.loaded_docs = os.listdir(self.doc_storage_dir)
         self.chat_history = []
         self.answer = ''
         self.db_query  = ''
         self.db_response = []
-        
+    '''
         
 
-    def get_chats(self):
+    '''def get_chats(self):
         if not self.chat_history:
             return print("No History Yet")
         chat_list = []
         for exchange in self.chat_history:
             chat_list.append(str(exchange))
-        return chat_list
+        return chat_list '''
 
     def get_sources(self):
         """

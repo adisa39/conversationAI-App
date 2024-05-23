@@ -60,13 +60,13 @@ def update_selection(files, file_name, is_selected):
     if is_selected:
         if file_name not in files:
             files.append(file_name)
-        print(files)
+        # print(files)
     else:
         try:
             files.remove(file_name)
         except ValueError:
             pass
-        print(files)
+        # print(files)
 
 
 class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior,
@@ -225,7 +225,7 @@ class BackGround(MDScreen):
         # Reload Vector Store when file(s) is deleted
         if selected_files:
             backend.unload_docs()
-            print("vectore store finish re-loading")
+            # print("vectore store finish re-loading")
 
         # refresh DocsLayout
         rv_instance = self.docs_layout
@@ -293,11 +293,11 @@ class ChatDocApp(MDApp):
                 rv_instance = self.root.ids.docs_layout
                 rv_instance.refresh_data()     
                 
-                # try:           
-                backend.load_doc(fn)
-                # except  Exception as err:
-        #             notification("Embeddings Error! \n \t Delete Document and Try Again")
-        #         notification("Document Uploaded Successfully")
+                try:           
+                    backend.load_doc(fn)
+                except  Exception as err:
+                    notification("Embeddings Error! \n \t Delete Document and Try Again")
+                notification("Document Uploaded Successfully")
         else:
             notification("only pdf file")
 
@@ -314,7 +314,6 @@ class ChatDocApp(MDApp):
             if self.manager_open:
                 self.file_manager.back()
         return True
-    
     
 
 ChatDocApp().run()
