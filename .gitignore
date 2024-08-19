@@ -1,0 +1,10 @@
+docs/
+db
+venv/
+adb.exe
+adbWinApi.dll
+adbWinUsbApi.dll
+buildozer2.spec
+.env
+.buildozer
+.idea
