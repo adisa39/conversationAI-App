@@ -1,2 +1,17 @@
 Kivy==2.3.0
 kivymd==1.2.0
+langchain==0.2.1
+langchain_community==0.2.1
+openai==1.30.3
+python-dotenv==1.0.1
+Requests==2.32.2
+chromadb
+pypdf
+typing-extensions
+pydantic
+httpx
+sniffio
+httpcore
+h11
+anyio
+distro

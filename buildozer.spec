@@ -12,11 +12,11 @@ package.domain = org.yourdomain
 source.dir = .
 
 # (str) Source code directory (default: current directory)
-source.include_exts = py,png,jpg,kv,atlas
+source.include_exts = py,png,jpg,kv,atlas,env,pdf,sqlite3
 
 # (list) Application requirements
 # Here are the necessary libraries for Kivy, KivyMD, and other Python modules.
-requirements = python3,kivy==2.2.1,kivymd==1.2.0
+requirements = python3,kivy==2.2.1,kivymd==1.2.0,pyjnius,openai,langchain==0.2.1,langchain_community==0.2.1,python-dotenv==1.0.1,chromadb,pypdf,Requests==2.32.2,typing-extensions,pydantic,httpx,sniffio,httpcore,h11,anyio,distro
 
 # (str) Icon of your application (256x256 png file)
 #icon.filename = icons/app_icon.png
@@ -51,6 +51,9 @@ android.ndk = 25b
 
 # (bool) Enable android logcat output during application run
 logcat = True
+
+# (str) Android logcat filters to use
+android.logcat_filters = *:S python:D
 
 # (str) Path to a custom build directory
 # build_dir =
@@ -126,7 +129,7 @@ window = 1
 android.python3 = True
 
 # (bool) Include the SQLite3 module in the package
-# sqlite = True
+sqlite = True
 
 # (str) Application platform options
 # platform.android = True
@@ -159,7 +162,7 @@ debug = True
 # android.additional_services =
 
 # (bool) Allow access to the internet
-# internet = True
+internet = True
 
 # (str) Enable video for the package
 # video = True
@@ -196,3 +199,4 @@ debug = True
 
 # (bool) Disable file monitoring for buildozer
 # disable_filemon = True
+

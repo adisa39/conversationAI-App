@@ -8,3 +8,4 @@ buildozer2.spec
 .env
 .buildozer
 .idea
+__pycache__

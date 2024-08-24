@@ -1,12 +1,25 @@
 import os
+from kivy.utils import platform
+# Ensure the path is correctly set for Android
+if platform == 'android':
+    from jnius import autoclass
+    Environment = autoclass('android.os.Environment')
+    documents_dir = Environment.getExternalStorageDirectory().getPath()
+    env_path = os.path.join(documents_dir, '.env')
+    android_storage_path = Environment.getExternalStorageDirectory().getAbsolutePath()
+else:
+    # Default to current working directory for other platforms
+    env_path = os.path.join(os.getcwd(), '.env')
+
+from resource import load_split_pdf, message_handler, initialize_api
+
 import shutil
 import queue
-from kivy.app import App
 from kivy.clock import Clock
-from kivy.config import Config
 from kivy.lang import Builder
 from kivy.core.window import Window
 from kivymd.app import MDApp
+from kivymd.uix.dialog import MDDialog
 from kivymd.uix.screen import MDScreen
 from kivy.properties import ObjectProperty, StringProperty, BooleanProperty
 from kivy.uix.recycleview import RecycleView
@@ -22,9 +35,11 @@ from kivymd.uix.snackbar import MDSnackbar
 from kivymd.uix.behaviors.toggle_behavior import MDToggleButton
 from kivymd.uix.button import MDFlatButton, MDIconButton
 
+
 # Global Lists
 selected_files = []
 selected_sources = []
+
 
 def get_or_create_dir(directory_name):
     """Function to create a directory if it doesn't exist."""
@@ -39,7 +54,9 @@ db_dir = get_or_create_dir("db")
 def notification(text):
     """Function to show a notification using MDSnackbar."""
     MDSnackbar(
-        text=text,
+        MDLabel(
+            text=text,
+        ),
         md_bg_color=(0.8, 0, 0, 1),
         duration=3
     ).open()
@@ -174,10 +191,29 @@ class BackGround(MDScreen):
         if msg == "":
             notification("Enter query text")
             return
+
+        # Disable the send button and change its icon to show loading state
         self.ids.send_btn.disabled = True
+        self.ids.send_btn.icon = "loading"  # Replace with a spinner icon or any loading indicator
+
+        # Display the message immediately
         self.display_message(f"Me: \n{msg}", "query", sent=True)
-        self.txtbox.text = ""
-        self.ids.send_btn.disabled = False
+
+        # Schedule the message processing after a short delay to allow UI to update
+        Clock.schedule_once(lambda dt: self.process_message(msg), 0.2)
+
+    def process_message(self, msg):
+        try:
+            # Send query to the backend with message_handler
+            answer, file = message_handler(msg, selected_sources)
+            self.display_message(answer, file, sent=False)
+        except Exception as err:
+            notification(f"{err}! Try Again")
+        finally:
+            # Re-enable the send button and restore the icon
+            self.ids.send_btn.disabled = False
+            self.ids.send_btn.icon = "send"  # Restore original send icon
+            self.txtbox.text = ""
 
     def display_message(self, message, response_doc, sent):
         message_layout = MessageLayout(message, response_doc, sent)
@@ -191,9 +227,9 @@ class BackGround(MDScreen):
                 os.remove(os.path.join(docs_dir, file))
                 self.docs_layout.refresh_data()
             except FileNotFoundError:
-                print(f"File {file} not found")
+                notification(f"File {file} not found")
             except Exception as e:
-                print(f"An error occurred: {str(e)}")
+                notification(f"An error occurred: {str(e)}")
 
     def delete_doc(self):
         self.delete_file(selected_files)
@@ -216,33 +252,63 @@ class ChatDocApp(MDApp):
         self.file_manager = MDFileManager(
             exit_manager=self.exit_manager, select_path=self.select_path, ext=['.pdf']
         )
+        self.loading_dialog = None  # Placeholder for loading dialog
+        self.api_status = None
 
     def build(self):
         self.title = 'ChatDocApp'
         self.theme_cls.material_style = "M3"
         self.theme_cls.theme_style = "Dark"
+        self.api_status = initialize_api()
         return Builder.load_file("chatdocapp.kv")
 
     def file_manager_open(self, *args):
+        # current_platform = platform()
+        # if current_platform == 'android':
+        #     documents_path = os.path.join(android_storage_path, "Documents")
+        # else:
+        #     documents_path = os.path.expanduser("~")
+        #
         self.file_manager.show(os.path.expanduser("~"))
         self.manager_open = True
         self.file_manager.show_disks()
 
     def open_file_manager(self, *args):
-        Clock.schedule_once(self.file_manager_open, 0.1)
+        if not self.api_status:
+            return notification("API key not initialized")
+        else:
+            Clock.schedule_once(self.file_manager_open, 0.1)
 
     def select_path(self, path: str):
+        # Close the file manager immediately
         self.exit_manager()
+        # Clock.schedule_once(lambda dt: self.show_loading_screen(), 0.1)
         fn = os.path.basename(path)
         if fn.lower().endswith(".pdf"):
-            file_path = os.path.join(docs_dir, fn)
             if fn in os.listdir(docs_dir):
                 notification("File already exists")
             else:
-                shutil.copy(path, file_path)
-                self.root.ids.docs_layout.refresh_data()
+                # Show the loading screen right after closing the file manager
+                self.show_loading_screen()
+                # Start processing the PDF with a small delay
+                Clock.schedule_once(lambda dt: self.process_pdf(path), 0.5)
         else:
             notification("Only PDF files are allowed")
+
+    def process_pdf(self, path):
+        try:
+            fn = os.path.basename(path)
+            file_path = os.path.join(docs_dir, fn)
+            uploaded_fl = load_split_pdf(path)
+            if uploaded_fl:
+                shutil.copy(path, file_path)
+                self.root.ids.docs_layout.refresh_data()
+                notification(f"{os.path.basename(uploaded_fl)} processed and saved.")
+            else:
+                notification("Failed to process the PDF.")
+        finally:
+            # Hide loading screen after processing is complete
+            self.hide_loading_screen()
 
     def exit_manager(self, *args):
         self.manager_open = False
@@ -253,6 +319,20 @@ class ChatDocApp(MDApp):
             if self.manager_open:
                 self.file_manager.back()
         return True
+
+    def show_loading_screen(self):
+        """Show a loading screen dialog."""
+        if not self.loading_dialog:
+            self.loading_dialog = MDDialog(
+                text="Processing PDF, please wait...",
+                auto_dismiss=False
+            )
+        self.loading_dialog.open()
+
+    def hide_loading_screen(self):
+        """Hide the loading screen dialog."""
+        if self.loading_dialog:
+            self.loading_dialog.dismiss()
 
     def on_stop(self):
         # Perform cleanup here if necessary
