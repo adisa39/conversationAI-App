@@ -99,7 +99,7 @@ main = main.py
 # source.include_exts =
 
 # (list) List of directories to be excluded from the package
-# source.exclude_exts =
+source.exclude_exts = README.md,.gitignore,requirements.txt
 
 # (bool) Whether to copy the source files to the build directory before packaging
 # copy_source = True
