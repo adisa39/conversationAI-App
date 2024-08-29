@@ -136,8 +136,7 @@ BackGround:
                             mode: "rectangle"
                             id: text_box_id
                             hint_text: "Enter your query text here"                            
-                            size_hint_x: .8
-                            on_focus: root.on_focus
+                            size_hint_x: .8                         
                         
                         MDIconButton:
                             id: send_btn
@@ -168,7 +167,7 @@ BackGround:
                         adaptive_height: True
                         
                         TextHeader:                            
-                            text: 'Chat History'
+                            text: 'Conversation'
 
                     ScrollView:
                         BoxLayout:
@@ -219,7 +218,7 @@ BackGround:
                             icon_color: "green"
                             #adaptive_size: True
                             valign: 'center'
-                            on_release: app.open_file_manager()
+                            on_release: app.file_manager_open()
 
                         MDIconButton: # CLEAR BUTTON
                             icon: 'layers-off'

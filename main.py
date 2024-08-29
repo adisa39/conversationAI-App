@@ -1,124 +1,157 @@
+# kivymd-1.2.0
 import os
 import shutil
 import queue
+import requests
 from kivy.app import App
 from kivy.clock import Clock
 from kivy.config import Config
 from kivy.lang import Builder
+
 from kivy.core.window import Window
 from kivymd.app import MDApp
 from kivymd.uix.screen import MDScreen
-from kivy.properties import ObjectProperty, StringProperty, BooleanProperty
+from kivy.properties import ObjectProperty, NumericProperty, StringProperty
+from kivy.metrics import dp
 from kivy.uix.recycleview import RecycleView
 from kivy.uix.label import Label
 from kivymd.uix.boxlayout import MDBoxLayout
 from kivymd.uix.filemanager import MDFileManager
+from kivymd.icon_definitions import md_icons
 from kivy.uix.recycleview.views import RecycleDataViewBehavior
 from kivy.uix.recycleboxlayout import RecycleBoxLayout
 from kivy.uix.behaviors import FocusBehavior
+from kivy.properties import BooleanProperty, ListProperty
 from kivy.uix.recycleview.layout import LayoutSelectionBehavior
 from kivymd.uix.label import MDLabel
+from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.snackbar import MDSnackbar
 from kivymd.uix.behaviors.toggle_behavior import MDToggleButton
 from kivymd.uix.button import MDFlatButton, MDIconButton
+from dotenv import load_dotenv
+import openai
+# from kivymd.toast import toast
 
-# Global Lists
+# from resource import message_handler
+from resource import StorageManager, ChatDocBackend
+
+load_dotenv()
+
+openai.api_key = os.getenv('OPENAI_API_KEY')
+
+sm = StorageManager()
+backend = ChatDocBackend()
 selected_files = []
 selected_sources = []
 
-def get_or_create_dir(directory_name):
-    """Function to create a directory if it doesn't exist."""
-    dir_path = os.path.join(os.getcwd(), directory_name)
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
-    return dir_path
-
-docs_dir = get_or_create_dir("docs")
-db_dir = get_or_create_dir("db")
-
 def notification(text):
-    """Function to show a notification using MDSnackbar."""
+    # toast(text=text, background=[0.8,0,0,1], duration=6.0,)
     MDSnackbar(
-        text=text,
-        md_bg_color=(0.8, 0, 0, 1),
-        duration=3
+        MDLabel(
+            text=text,
+        ),
+        # y=dp(300),
+        pos_hint={"center_x": 0.5},
+        # size_hint_x=0.5,
+        md_bg_color=(0.8,0,0,1)
     ).open()
+        
 
 def update_selection(files, file_name, is_selected):
-    """Function to add and remove files from the selected list."""
+    """
+    Function to add and remove file from selected list
+    """
     if is_selected:
         if file_name not in files:
             files.append(file_name)
+        # print(files)
     else:
         try:
             files.remove(file_name)
         except ValueError:
             pass
+        # print(files)
 
-class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior, RecycleBoxLayout):
-    '''Adds selection and focus behavior to the view.'''
+
+class SelectableRecycleBoxLayout(FocusBehavior, LayoutSelectionBehavior,
+                                 RecycleBoxLayout):
+    ''' Adds selection and focus behavior to the view. '''
+
 
 class SourceToggleView(RecycleDataViewBehavior, Label):
-    '''Add selection support to the Label'''
+    ''' Add selection support to the Label '''
     index = None
     selected = BooleanProperty(False)
-    selectable = BooleanProperty(True)
+    selectable = BooleanProperty(True)    
+
     fn = StringProperty("")
 
     def refresh_view_attrs(self, rv, index, data):
+        ''' Catch and handle the view changes '''
         self.index = index
-        return super(SourceToggleView, self).refresh_view_attrs(rv, index, data)
+        return super(SourceToggleView, self).refresh_view_attrs(
+            rv, index, data)
 
     def on_touch_down(self, touch):
+        ''' Add selection on touch down '''
         if super(SourceToggleView, self).on_touch_down(touch):
             return True
         if self.collide_point(*touch.pos) and self.selectable:
             return self.parent.select_with_touch(self.index, touch)
 
     def apply_selection(self, rv, index, is_selected):
+        ''' Respond to the selection of items in the view. '''
         self.selected = is_selected
         file_name = rv.data[index]['fn']
-        update_selection(selected_sources, file_name, is_selected)
+        update_selection(selected_sources,file_name,is_selected)
+
 
 class DocsLayout(RecycleDataViewBehavior, Label):
-    '''Add selection support to the Label'''
+    ''' Add selection support to the Label '''
     index = None
     selected = BooleanProperty(False)
-    selectable = BooleanProperty(True)
+    selectable = BooleanProperty(True)    
+
     fn = StringProperty("")
 
     def refresh_view_attrs(self, rv, index, data):
+        ''' Catch and handle the view changes '''
         self.index = index
-        return super(DocsLayout, self).refresh_view_attrs(rv, index, data)
+        return super(DocsLayout, self).refresh_view_attrs(
+            rv, index, data)
 
     def on_touch_down(self, touch):
+        ''' Add selection on touch down '''
         if super(DocsLayout, self).on_touch_down(touch):
             return True
         if self.collide_point(*touch.pos) and self.selectable:
             return self.parent.select_with_touch(self.index, touch)
 
     def apply_selection(self, rv, index, is_selected):
+        ''' Respond to the selection of items in the view. '''
         self.selected = is_selected
         file_name = rv.data[index]['fn']
-        update_selection(selected_files, file_name, is_selected)
+        update_selection(selected_files,file_name,is_selected)
+
 
 class RV(RecycleView):
-    """Document List View Page"""
+    """
+    Dcocument List View Page
+    """
     def __init__(self, **kwargs):
         super(RV, self).__init__(**kwargs)
+        
         self.refresh_data()
 
     def refresh_data(self):
-        self.data = [{'fn': str(x)} for x in self.show_docs()]
+        self.data = [{'fn': str(x)} for x in sm.show_docs()]
 
-    def show_docs(self):
-        filenames = [i for i in os.listdir(docs_dir) if i.endswith(".pdf")]
-        return filenames
 
 class SourceToggleButton(MDFlatButton, MDIconButton, MDToggleButton):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.background_down = self.theme_cls.primary_color
+
 
 class MessageLayout(MDBoxLayout):
     msg = StringProperty("")
@@ -137,16 +170,16 @@ class MessageLayout(MDBoxLayout):
         text_body = MDLabel(
             text=self.msg,
             halign='right' if self.sent else 'left',
-            theme_text_color="Custom",
+            theme_text_color= "Custom", 
             text_color=(0, 0.5, 1, 1) if self.sent else (0, 0, 0, 1),
-            adaptive_height=True,
+            adaptive_height=True,        
             markup=True
         )
 
         source_text = MDLabel(
             text="" if self.sent else self.doc,
-            theme_text_color="Custom",
-            text_color=(0.8, 0, 0, 1),
+            theme_text_color= "Custom",
+            text_color=(0.8,0,0,1),
             halign='right' if self.sent else 'left',
             adaptive_height=True
         )
@@ -154,11 +187,12 @@ class MessageLayout(MDBoxLayout):
         self.add_widget(text_body)
         self.add_widget(source_text)
 
+
 class BackGround(MDScreen):
     docs_layout = ObjectProperty(None)
     select_source_layout = ObjectProperty(None)
     txtbox = ObjectProperty(None)
-    chat_scroll = ObjectProperty(None)
+    chat_scroll = ObjectProperty(None)  # Referencing the ScrollView
     chat_layout = ObjectProperty(None)
     message_queue = queue.Queue()
     messages = []
@@ -166,97 +200,150 @@ class BackGround(MDScreen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    def on_focus(self, instance, value):
-        if value:  # When the text field is focused
-            self.ids.chat_scroll.scroll_to(instance, padding=10)
-
     def send_message(self, msg):
         if msg == "":
             notification("Enter query text")
             return
         self.ids.send_btn.disabled = True
         self.display_message(f"Me: \n{msg}", "query", sent=True)
+
+        # send query to the backend with message_handler
+        try:
+            answer, file = backend.message_handler(msg, selected_sources)
+            self.display_message(answer, file, sent=False)
+        except Exception as err:
+            notification(f"{err}! Try Again")
+
         self.txtbox.text = ""
         self.ids.send_btn.disabled = False
 
     def display_message(self, message, response_doc, sent):
         message_layout = MessageLayout(message, response_doc, sent)
         self.chat_layout.add_widget(message_layout)
-        Clock.schedule_once(lambda dt: self.chat_scroll.scroll_to(message_layout), 0.1)
+        Clock.schedule_once(lambda dt: self.chat_scroll.scroll_to(message_layout), 0.1)  # Ensure scrolling happens after the UI update
 
-    def delete_file(self, files):
-        """Method to delete files from storage."""
-        for file in files:
-            try:
-                os.remove(os.path.join(docs_dir, file))
-                self.docs_layout.refresh_data()
-            except FileNotFoundError:
-                print(f"File {file} not found")
-            except Exception as e:
-                print(f"An error occurred: {str(e)}")
 
     def delete_doc(self):
-        self.delete_file(selected_files)
-        selected_files.clear()
-        self.docs_layout.refresh_data()
-        self.select_source_layout.refresh_data()
+        # Delete files from docs
+        sm.delete_doc(selected_files)
+        # Reload Vector Store when file(s) is deleted
+        if selected_files:
+            backend.unload_docs()
+            # print("vectore store finish re-loading")
+
+        # refresh DocsLayout
+        rv_instance = self.docs_layout
+        rv_instance.refresh_data()
+
+        # Remove deleted files from selected_files list
+        for file_name in selected_files.copy():
+            if file_name not in [item['fn'] for item in rv_instance.data]:
+                selected_files.remove(file_name)
+
+        # Refresh SourceToggleView
+        src_rv_instance = self.select_source_layout
+        src_rv_instance.refresh_data()
+
+        # Remove deleted files from selected_sources list
+        for file_name in selected_sources.copy():
+            if file_name not in [item['fn'] for item in src_rv_instance.data]:
+                selected_sources.remove(file_name)
+
 
     def clear_storage(self):
-        shutil.rmtree(docs_dir)
-        shutil.rmtree(db_dir)
-        os.makedirs(docs_dir)
-        os.makedirs(db_dir)
-        self.docs_layout.refresh_data()
+        sm.clear_storage()
+        # Refresh Chat History 
+        backend.clr_history()
+
+def create_docs_folder():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    docs_dir = os.path.join(current_dir, 'docs')
+    db_dir = os.path.join(current_dir, 'db')
+
+    if not os.path.exists(docs_dir):
+        try:
+            os.makedirs(docs_dir)
+            print(f"Directory 'docs' created at {docs_dir}")
+        except Exception as e:
+            print(f"Failed to create directory 'docs': {e}")
+    else:
+        print(f"Directory 'docs' already exists at {docs_dir}")
+    
+    if not os.path.exists(db_dir):
+        try:
+            os.makedirs(db_dir)
+            print(f"Directory 'docs' created at {db_dir}")
+        except Exception as e:
+            print(f"Failed to create directory 'docs': {e}")
+    else:
+        print(f"Directory 'docs' already exists at {db_dir}")
 
 class ChatDocApp(MDApp):
+    #docs_layout = ObjectProperty(None)
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         Window.bind(on_keyboard=self.events)
         self.manager_open = False
         self.file_manager = MDFileManager(
-            exit_manager=self.exit_manager, select_path=self.select_path, ext=['.pdf']
+            exit_manager=self.exit_manager, select_path=self.select_path
         )
 
     def build(self):
         self.title = 'ChatDocApp'
         self.theme_cls.material_style = "M3"
         self.theme_cls.theme_style = "Dark"
+        create_docs_folder()
         return Builder.load_file("chatdocapp.kv")
-
-    def file_manager_open(self, *args):
-        self.file_manager.show(os.path.expanduser("~"))
+        
+    def file_manager_open(self):
+        self.file_manager.show(os.path.expanduser("~"))  # output manager to the screen
         self.manager_open = True
         self.file_manager.show_disks()
 
-    def open_file_manager(self, *args):
-        Clock.schedule_once(self.file_manager_open, 0.1)
-
     def select_path(self, path: str):
+        '''
+        It will be called when you click on the file name
+        or the catalog selection button.
+
+        :param path: path to the selected directory or file;
+        '''
+
         self.exit_manager()
         fn = os.path.basename(path)
-        if fn.lower().endswith(".pdf"):
-            file_path = os.path.join(docs_dir, fn)
-            if fn in os.listdir(docs_dir):
-                notification("File already exists")
+        if fn.endswith(".pdf") or fn.endswith(".PDF"):
+            output_folder = "docs"
+            if fn in os.listdir(output_folder):
+                notification("file already exist")
             else:
-                shutil.copy(path, file_path)
-                self.root.ids.docs_layout.refresh_data()
+                file_path = os.path.join(output_folder, fn)
+                os.makedirs(output_folder, exist_ok=True)
+                shutil.copy(path, file_path)                
+                rv_instance = self.root.ids.docs_layout
+                rv_instance.refresh_data()     
+                
+                try:           
+                    backend.load_doc(fn)
+                except  Exception as err:
+                    notification("Embeddings Error! \n \t Delete Document and Try Again")
+                notification("Document Uploaded Successfully")
         else:
-            notification("Only PDF files are allowed")
+            notification("only pdf file")
 
     def exit_manager(self, *args):
+        '''Called when the user reaches the root of the directory tree.'''
+
         self.manager_open = False
         self.file_manager.close()
 
     def events(self, instance, keyboard, keycode, text, modifiers):
+        '''Called when buttons are pressed on the mobile device.'''
+
         if keyboard in (1001, 27):
             if self.manager_open:
                 self.file_manager.back()
         return True
-
-    def on_stop(self):
-        # Perform cleanup here if necessary
-        pass
+    
 
 if __name__ == "__main__":
     ChatDocApp().run()
