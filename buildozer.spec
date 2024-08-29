@@ -16,7 +16,7 @@ source.include_exts = py,png,jpg,kv,atlas,env,pdf,sqlite3
 
 # (list) Application requirements
 # Here are the necessary libraries for Kivy, KivyMD, and other Python modules.
-requirements = python3,kivy==2.2.1,kivymd==1.2.0,pyjnius,openai,langchain==0.2.1,langchain_community==0.2.1,python-dotenv==1.0.1,chromadb,pypdf,Requests==2.32.2,typing-extensions,pydantic,httpx,sniffio,httpcore,h11,anyio,distro
+requirements = python3,kivy==2.2.1,kivymd==1.2.0,pyjnius,langchain==0.2.1,langchain_community==0.2.1,python-dotenv==1.0.1,chromadb,pypdf,Requests==2.32.2,typing-extensions,pydantic,httpx,sniffio,httpcore,h11,anyio,distro,langchain_core,tenacity,packaging,langsmith,orjson
 
 # (str) Icon of your application (256x256 png file)
 #icon.filename = icons/app_icon.png

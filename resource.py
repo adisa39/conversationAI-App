@@ -1,5 +1,4 @@
 import os
-import openai
 from dotenv import load_dotenv, find_dotenv
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -20,8 +19,9 @@ chat_history = []
 def initialize_api():
     # Check if the OpenAI API key is loaded
     load_dotenv(find_dotenv())
-    openai.api_key = os.getenv('OPENAI_API_KEY')
-    if not openai.api_key:
+    api_key = os.getenv('OPENAI_API_KEY')
+    # print("openai API key", api_key)
+    if not api_key:
         return None
     else:
         return "success"
