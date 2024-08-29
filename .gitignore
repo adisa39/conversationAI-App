@@ -9,3 +9,4 @@ buildozer2.spec
 .buildozer
 .idea
 __pycache__
+bin
